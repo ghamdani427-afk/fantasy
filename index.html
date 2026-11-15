@@ -1,1 +1,373 @@
+
 <!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legenda Eldoria RPG</title>
+<style>
+*{box-sizing:border-box}
+body{
+ margin:0;background:#081323;color:white;
+ font-family:Arial,sans-serif;overflow:hidden;
+}
+canvas{
+ display:block;width:100vw;height:100dvh;
+ background:#244c3d;touch-action:none;
+}
+.hud{
+ position:fixed;top:10px;left:10px;right:10px;
+ display:flex;justify-content:space-between;
+ pointer-events:none;gap:10px;
+}
+.panel{
+ background:#101b2ddd;border:1px solid #d9b66c;
+ border-radius:12px;padding:12px;
+}
+.title{color:#f4cf75;font-weight:bold}
+.bar{
+ width:140px;height:9px;background:#444;
+ border-radius:10px;overflow:hidden;
+}
+#hp{height:100%;width:100%;background:#e75d62}
+.controls{
+ position:fixed;bottom:15px;left:15px;right:15px;
+ display:flex;justify-content:space-between;
+}
+.pad{
+ display:grid;grid-template-columns:repeat(3,45px);
+ gap:4px;
+}
+button{
+ background:#14223b;color:white;
+ border:1px solid #f4cf75;
+ border-radius:12px;padding:12px;
+ font-size:18px;touch-action:none;
+}
+.attack{border-radius:50%;width:65px;height:65px}
+#start{
+ position:fixed;inset:0;background:#081323ee;
+ display:grid;place-items:center;text-align:center;
+ padding:20px;
+}
+.intro{
+ max-width:400px;padding:30px;
+ background:#14223b;border:1px solid #f4cf75;
+ border-radius:20px;
+}
+h1{color:#f4cf75;font-size:38px}
+#play{background:#e8bb65;color:#111;font-weight:bold}
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div class="hud">
+ <div class="panel">
+  <div class="title">⚔️ ELDORIA RPG</div>
+  <p id="hptext">❤️ HP: 100</p>
+  <div class="bar"><div id="hp"></div></div>
+  <p id="crystal">💎 Kristal: 0/5</p>
+ </div>
+ <div class="panel">
+  <div class="title">MISI UTAMA</div>
+  <p>Kumpulkan 5 kristal ajaib!</p>
+ </div>
+</div>
+
+<div class="controls">
+ <div class="pad">
+  <button style="grid-column:2" data-key="ArrowUp">▲</button>
+  <button data-key="ArrowLeft">◀</button>
+  <button data-key="ArrowDown">▼</button>
+  <button data-key="ArrowRight">▶</button>
+ </div>
+ <button class="attack" id="attack">⚔️</button>
+</div>
+
+<div id="start">
+ <div class="intro">
+  <h1>ELDORIA</h1>
+  <p>Fantasy Adventure RPG</p>
+  <p>Jelajahi hutan, kumpulkan kristal dan kalahkan monster!</p>
+  <button id="play">MULAI PETUALANGAN</button>
+ </div>
+</div>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+let W,H;
+function resize(){
+ W=canvas.width=innerWidth;
+ H=canvas.height=innerHeight;
+}
+resize();
+onresize=resize;
+
+let player={
+ x:400,y:300,hp:100,
+ speed:3,faceX:1,faceY:0
+};
+
+let keys={};
+let count=0;
+let started=false;
+let enemies=[];
+let crystals=[];
+
+function random(min,max){
+ return Math.random()*(max-min)+min;
+}
+
+function reset(){
+ player.x=W/2;
+ player.y=H/2;
+ player.hp=100;
+ count=0;
+ enemies=[];
+ crystals=[];
+
+ for(let i=0;i<5;i++){
+  crystals.push({
+   x:random(40,W-40),
+   y:random(100,H-100),
+   got:false
+  });
+ }
+
+ for(let i=0;i<8;i++){
+  enemies.push({
+   x:random(50,W-50),
+   y:random(100,H-100),
+   hp:2
+  });
+ }
+
+ updateHUD();
+}
+
+function updateHUD(){
+ document.getElementById("hp").style.width=
+ player.hp+"%";
+
+ document.getElementById("hptext").innerText=
+ "❤️ HP: "+Math.ceil(player.hp);
+
+ document.getElementById("crystal").innerText=
+ "💎 Kristal: "+count+"/5";
+}
+
+function move(){
+ let dx=0,dy=0;
+
+ if(keys.ArrowUp||keys.w)dy--;
+ if(keys.ArrowDown||keys.s)dy++;
+ if(keys.ArrowLeft||keys.a)dx--;
+ if(keys.ArrowRight||keys.d)dx++;
+
+ let len=Math.hypot(dx,dy);
+ if(len){
+  dx/=len;dy/=len;
+  player.faceX=dx;
+  player.faceY=dy;
+ }
+
+ player.x+=dx*player.speed;
+ player.y+=dy*player.speed;
+
+ player.x=Math.max(20,Math.min(W-20,player.x));
+ player.y=Math.max(60,Math.min(H-20,player.y));
+}
+
+function attack(){
+ if(!started)return;
+
+ enemies.forEach(e=>{
+  if(e.hp<=0)return;
+
+  let d=Math.hypot(
+   e.x-player.x,e.y-player.y
+  );
+
+  if(d<65){
+   e.hp--;
+  }
+ });
+}
+
+function update(){
+ if(!started)return;
+
+ move();
+
+ crystals.forEach(c=>{
+  if(!c.got &&
+   Math.hypot(c.x-player.x,c.y-player.y)<25){
+   c.got=true;
+   count++;
+   player.hp=Math.min(100,player.hp+10);
+   updateHUD();
+  }
+ });
+
+ enemies.forEach(e=>{
+  if(e.hp<=0)return;
+
+  let dx=player.x-e.x;
+  let dy=player.y-e.y;
+  let d=Math.hypot(dx,dy);
+
+  if(d<180&&d>1){
+   e.x+=dx/d*0.7;
+   e.y+=dy/d*0.7;
+  }
+
+  if(d<25){
+   player.hp-=0.1;
+   updateHUD();
+  }
+ });
+
+ if(count>=5){
+  started=false;
+  alert("SELAMAT! KERAJAAN ELDORIA SELAMAT!");
+  document.getElementById("start").style.display="grid";
+ }
+ if(player.hp<=0){
+  started=false;
+  alert("GAME OVER!");
+  document.getElementById("start").style.display="grid";
+ }
+}
+
+function draw(){
+ ctx.clearRect(0,0,W,H);
+
+ // Background
+ ctx.fillStyle="#244c3d";
+ ctx.fillRect(0,0,W,H);
+
+ // Grass
+ for(let i=0;i<100;i++){
+  let x=(i*137)%W;
+  let y=(i*251)%H;
+  ctx.fillStyle="#315f49";
+  ctx.fillRect(x,y,4,4);
+ }
+
+ // Trees
+ for(let i=0;i<35;i++){
+  let x=(i*173)%W;
+  let y=(i*127)%H;
+
+  ctx.fillStyle="#183a30";
+  ctx.beginPath();
+  ctx.arc(x,y,18,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle="#39734d";
+  ctx.beginPath();
+  ctx.arc(x,y,14,0,Math.PI*2);
+  ctx.fill();
+ }
+
+ // Crystals
+ crystals.forEach(c=>{
+  if(c.got)return;
+
+  ctx.fillStyle="#75ffe5";
+  ctx.shadowColor="#75ffe5";
+  ctx.shadowBlur=18;
+
+  ctx.beginPath();
+  ctx.moveTo(c.x,c.y-14);
+  ctx.lineTo(c.x+10,c.y);
+  ctx.lineTo(c.x,c.y+14);
+  ctx.lineTo(c.x-10,c.y);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.shadowBlur=0;
+ });
+
+ // Monsters
+ enemies.forEach(e=>{
+  if(e.hp<=0)return;
+
+  ctx.fillStyle="#78bd83";
+  ctx.beginPath();
+  ctx.arc(e.x,e.y,15,0,Math.PI*2);
+  ctx.fill();
+
+  ctx.fillStyle="white";
+  ctx.fillRect(e.x-7,e.y-4,4,4);
+  ctx.fillRect(e.x+4,e.y-4,4,4);
+ });
+
+ // Player
+ ctx.fillStyle="#e9bd70";
+ ctx.beginPath();
+ ctx.arc(player.x,player.y,15,0,Math.PI*2);
+ ctx.fill();
+
+ ctx.fillStyle="#395c9b";
+ ctx.fillRect(player.x-11,player.y+5,22,13);
+
+ // Sword
+ ctx.strokeStyle="white";
+ ctx.lineWidth=4;
+ ctx.beginPath();
+ ctx.moveTo(player.x,player.y);
+ ctx.lineTo(
+  player.x+player.faceX*28,
+  player.y+player.faceY*28
+ );
+ ctx.stroke();
+}
+
+function loop(){
+ update();
+ draw();
+ requestAnimationFrame(loop);
+}
+loop();
+
+onkeydown=e=>{
+ keys[e.key]=true;
+ if(e.code==="Space")attack();
+};
+
+onkeyup=e=>{
+ keys[e.key]=false;
+};
+
+document.querySelectorAll("[data-key]").forEach(btn=>{
+ let key=btn.dataset.key;
+
+ btn.addEventListener("pointerdown",e=>{
+  e.preventDefault();
+  keys[key]=true;
+  btn.setPointerCapture(e.pointerId);
+ });
+
+ ["pointerup","pointercancel","lostpointercapture"]
+ .forEach(event=>{
+  btn.addEventListener(event,()=>keys[key]=false);
+ });
+});
+
+document.getElementById("attack")
+.addEventListener("pointerdown",attack);
+
+document.getElementById("play").onclick=()=>{
+ reset();
+ started=true;
+ document.getElementById("start").style.display="none";
+};
+</script>
+</body>
+</html>
+
